@@ -26,27 +26,23 @@ function printProducts() {
         console.log("-----------------------------------");
         start();
     });
-
-
 }
-
 
 function start() {
     // connection.query("SELECT id,stock_quantity FROM products", function (err, res) {
     //     if (err) throw err;
-    // prompt for info about the item being put up for auction
+    // prompt for info about Id and quantity of product
     inquirer
         .prompt([{
-                name: "Id",
+                name: "id",
                 type: "input",
                 message: "What is the Id of the product that you would like to buy?",
                 validate: function (value) {
                     if (isNaN(value) === false) {
                         return true;
                     }
-                    return false;
+                    return ("**ERROR** Invalid ID, enter a valid ID from the list");
                 }
-
             },
             {
                 name: "stock_quantity",
@@ -56,22 +52,52 @@ function start() {
                     if (isNaN(value) === false) {
                         return true;
                     }
-                    return false;
+                    return ("**ERROR** Enter a number");
                 }
             }
         ])
         .then(function (answer) {
-            // when finished prompting, insert a new item into the db with that info
-            connection.query(
-                "SELECT * FROM products WHERE id = ?", [answer.id],
-                function (err, res) {
-                    for (let i = 0; i < res.length; i++) {
-                        console.log("Your product choise is" + res[i].product_name)
+            var query = "SELECT * FROM products WHERE id = ?";
+            connection.query(query, [answer.id], function (err, res) {
+                for (var i = 0; i < res.length; i++) {
+                    console.log("Your product choice is: " + res[i].product_name + "   for a quantity of  " + answer.stock_quantity);
+                    console.log("We currently have a quantity of " + res[i].stock_quantity + "   for this product");
+                    if (res[i].stock_quantity < answer.stock_quantity) {
+                        console.log("Sorry there is not enough quantity of this product in stock.");
+                        nextOption();
+                    } else {
+                        console.log("*****************************************************");
+                        console.log("Your order has been processed.Thank you for Shopping!");
+                        console.log("*****************************************************");
+                        console.log("You purchased" + " " + res[i].product_name + "with quantity of   " + answer.stock_quantity);
+                        var purchaseTotal = res[i].price * answer.stock_quantity;
+                        console.log("Your total COST is $" + purchaseTotal);
+                        var newQty = res[i].stock_quantity - answer.stock_quantity;
+                        console.log("We now have a quantity of " + newQty + "  remaining for this product");
+                        //Updating stock quantity in the database
+                        connection.query("UPDATE products SET stock_quantity = " + newQty + " WHERE item_id = " + res[i].id, function (err, res) {
+                            nextOption();
+                        });
                     }
+                }
+            })
+        })
+}
 
-                },
-
-            );
-        });
-    // })
+function nextOption() {
+    inquirer.prompt([{
+            name: "continue",
+            type: "confirm",
+            message: "Do you want to puchase another product?"
+        }])
+        .then(function (response) {
+            if (response.continue == true) {
+                console.log("Do you want to continue shopping");
+                printProducts();
+            } else {
+                console.log("Thank you for visiting!");
+                console.log("GOOD BYE!");
+                connection.end();
+            }
+        })
 }
